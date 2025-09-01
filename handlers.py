@@ -7,6 +7,7 @@ import http.server
 import schema
 from typing import Callable, Any
 import datetime
+import secrets
 
 import logging
 
@@ -25,20 +26,14 @@ class AppHandlers(server.Handler):
         """Decorator for ensuring only admins have accesss to path. Doesn't work yet."""
         def wrapper(*args, **kwargs):
             self = args[0]
-            if not self.is_logged_in():
-                self.redirect_login()
+            if self.logged_user is None:
+                self.send_error_json("login required", status=http.HTTPStatus.FORBIDDEN)
                 return
-            if self.user.role != 'ADMIN':
-                self.send_response(http.HTTPStatus.FORBIDDEN, "Ony admins can access this api")
+            if self.logged_user.role != 'admin':
+                self.send_error_json("only admin", status=http.HTTPStatus.FORBIDDEN)
                 return
             return f(*args, **kwargs)
         return wrapper
-
-    def is_logged_in(self) -> bool:
-        token = self.Headers['Token'] or None
-        if token is None:
-            return False
-        return True
 
     def send_json(self, msg: Any):
         """Schema objects all have .encode() and .decode() to convert to/from json."""
@@ -83,7 +78,13 @@ class AppHandlers(server.Handler):
             self.send_error_json("couldn't login")
             return
         u = schema.get_user(self.db, uid=u.uid)[0]
-        self.send_json(u)
+        token = secrets.token_urlsafe(16)
+        ses = self.get_session()
+        ses[token] = u
+        self.send_response(http.HTTPStatus.OK)
+        self.send_header('Set-Cookie', f"token={token}")
+        self.end_headers()
+        self.wfile.write(u.encode().encode())
 
     @server.Handler.route("/api/add_user", "POST")
     def add_user(self):
@@ -99,8 +100,8 @@ class AppHandlers(server.Handler):
             return
         self.send_json(u2)
 
-    @admin_only
     @server.Handler.route("/api/get_user", "POST")
+    @admin_only
     def get_user(self):
         want = {'email', 'uid', 'name'}
         filters, ok = self.filters_from_body(want)
@@ -119,8 +120,8 @@ class AppHandlers(server.Handler):
         movies = schema.get_movie(self.db, **filters)
         self.send_json_list(movies)
 
-    @admin_only
     @server.Handler.route("/api/add_movie", "POST")
+    @admin_only
     def add_movie(self):
         want = {'title', 'length', 'poster'}
         filters, ok = self.filters_from_body(want)
@@ -147,8 +148,8 @@ class AppHandlers(server.Handler):
         theaters = schema.get_theater(self.db, **filters)
         self.send_json_list(theaters)
 
-    @admin_only
     @server.Handler.route("/api/add_theater", "POST")
+    @admin_only
     def add_theater(self):
         want = {'name', 'seats', 'tid'}
         filters, ok = self.filters_from_body(want)
@@ -167,8 +168,8 @@ class AppHandlers(server.Handler):
             return
         self.send_json_list(schema.get_show(self.db, **filters))
 
-    @admin_only
     @server.Handler.route("/api/add_show", "POST")
+    @admin_only
     def add_show(self):
         want = {'movie', 'startTime', 'theater', 'seats', 'max_seats', 'sid'}
         filters, ok = self.filters_from_body(want)

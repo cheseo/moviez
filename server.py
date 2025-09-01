@@ -39,8 +39,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     get_routes: Dict[str, Callable] = {}
     post_routes: Dict[str, Callable] = {}
+    _session: dict[str,str] = {}
+    @classmethod
+    def get_session(cls) -> dict:
+        return cls._session
 
-    def _get_headers(self) -> dict:
+    def _get_headers(self) -> dict[str,str]:
         d = {}
         for name in self.headers:
             d[name] = self.headers[name];
@@ -76,6 +80,23 @@ class Handler(http.server.BaseHTTPRequestHandler):
         """Common tasks for both GET and POST methods, like setting up headers"""
         self.Url = urlparse(self.path)
         self.Headers = self._get_headers()
+        logger.debug(f"headers are: {self.Headers}")
+        self.Cookies = {}
+        if 'Cookie' in self.Headers:
+            c = self.Headers['Cookie']
+            logger.debug(f"cookies={c}")
+            cks = c.split(';')
+            for i in cks:
+                t,v = i.split('=', 2)
+                self.Cookies[t] = v
+            logger.debug(f"{self.Cookies=}")
+        self.logged_user = None
+        if 'token' in self.Cookies:
+            sess = self.get_session()
+            logger.debug(f"{self.get_session()=}")
+            if self.Cookies['token'] in sess:
+                self.logged_user = sess[self.Cookies['token']]
+                logger.debug(f"loggedin in user is {self.logged_user}")
 
     def do_GET(self):
         self._preamble()
