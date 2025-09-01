@@ -75,7 +75,7 @@ class TestHandlers(unittest.TestCase):
         self.add_user({"email": "me@me", "password":"me"})
         path="/api/login"
         send={"email": "me@me", "password":"me"}
-        want = {'message': 'logged in! ', 'success': 'true'}
+        want = {'email': 'me@me', 'name': '', 'password': '', 'role': 'user', 'uid': 1}
         have = self.post(path, send)
         self.assertEqual(have, want)
 

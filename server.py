@@ -16,8 +16,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     sets up headers, body and url parameters before calling respective route methods.
 
     functions:
-    - route
-
+    - @route("/login", method="POST")
     - send_error_json(msg)
         redirect with HTTPStatus.BAD_REQUEST, setting the msg.
     - redirect(locatoin, status=HTTPStatus.TEMPORARY_REDIRECTw)
@@ -25,13 +24,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
         It calls end_headers() at the end.
     - sendfile(path):
         sends ./path file to the write pipe
+    - send_error_json(msg: str, status: int = http.HTTPStatus.BAD_REQUEST)
+    - send_json_ok(self, msg: str, status: http.HTTPStatus = http.HTTPStatus.OK)
+    - send_message(self, message: bytes, status: int = http.HTTPStatus.OK)
+    - redirect(self, location: str, status: int = http.HTTPStatus.TEMPORARY_REDIRECT)
 
-    @route("/")
-    def index:
-    ...
-    @route("/login", method="POST")
-    def login:
-    ...
+    It stores common variables like:
+    - Headers: dict[str, str]
+    - Url: urlparse.ParseResult
+    - body: Any # Usually dict or list, converted from json
+
+    as instance variables.
     """
 
     get_routes: Dict[str, Callable] = {}
@@ -44,19 +47,24 @@ class Handler(http.server.BaseHTTPRequestHandler):
         return d
 
     def send_error_json(self, msg: str, status: int = http.HTTPStatus.BAD_REQUEST):
+        """sends {success: false, message: msg} with the status"""
         self.send_response(status)
         self.end_headers()
         self.wfile.write(
             json.dumps({"success": "false", "message": msg}).encode())
         
     def send_json_ok(self, msg: str, status: http.HTTPStatus = http.HTTPStatus.OK):
+        """sends {success: true, message: "msg"} with the http status"""
         self.send_response(status)
         self.end_headers()
         self.wfile.write(json.dumps({"success": "true", "message": msg}).encode())
+
     def send_message(self, message: bytes, status: int = http.HTTPStatus.OK):
+        """Used for sending OK messages, preconverted to bytes."""
         self.send_response(status)
         self.end_headers()
         self.wfile.write(message)
+
     def redirect(self,
                  location: str,
                  status: int = http.HTTPStatus.TEMPORARY_REDIRECT):
@@ -102,9 +110,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_error_json("handler didn't send anything", status=http.HTTPStatus.INTERNAL_SERVER_ERROR)
         self.end_headers()
 
-    def sendfile(self, path):
+    def sendfile(self, path: str, content_type: str = "text/html"):
+        """Opens ./path and sends it to client"""
         self.send_response(http.HTTPStatus.OK)
-        self.send_header("Content-type", "text/html")
+        self.send_header("Content-type", content_type)
         self.end_headers()
         with open("./" + path, "rb") as f:
             self.wfile.write(f.read())

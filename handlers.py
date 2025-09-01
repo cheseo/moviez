@@ -14,10 +14,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class AppHandlers(server.Handler):
-    # from server.Handler:
-    # Headers: dict[str, str]
-    # Url: urlparse.ParseResult
-    # Body: dict # converted from json
     db: sqlite3.Connection
 
     @classmethod
@@ -26,6 +22,7 @@ class AppHandlers(server.Handler):
 
     @staticmethod
     def admin_only(f: Callable):
+        """Decorator for ensuring only admins have accesss to path. Doesn't work yet."""
         def wrapper(*args, **kwargs):
             self = args[0]
             if not self.is_logged_in():
@@ -42,16 +39,21 @@ class AppHandlers(server.Handler):
         if token is None:
             return False
         return True
+
     def send_json(self, msg: Any):
+        """Schema objects all have .encode() and .decode() to convert to/from json."""
         self.send_message(msg.encode().encode())
         
     def send_json_list(self, lst: list):
+        """Assumes the items inside list is always from Schema module"""
         o = []
         for itm in lst:
             o.append(itm.encode())
         b = '[' + ','.join(o) +']'
         self.send_message(b.encode())
+
     def filters_from_body(self, want: set) -> tuple[Any,bool]:
+        """remove unwanted keys from the dictionary of body"""
         bk = self.body.keys()
         extra = bk - want
         if len(extra) > 0:
@@ -67,21 +69,29 @@ class AppHandlers(server.Handler):
 
     @server.Handler.route("/api/login")
     def get_login(self):
-        self.send_error(http.HTTPStatus.METHOD_NOT_ALLOWED, 'please POST the {"username": "user", "password": "pw"} json to /api/login')
+        self.send_error(http.HTTPStatus.METHOD_NOT_ALLOWED, 'please POST the json to /api/login')
 
     @server.Handler.route("/api/login", "POST")
     def post_login(self):
-        u = schema.User.decode(self.body)
+        want = {'email', 'password'}
+        filters, ok = self.filters_from_body({'email', 'password'})
+        if not ok:
+            return
+        u = schema.User.decode(filters)
         u.uid = schema.login(self.db, u.email, u.password)
         if not u.uid:
             self.send_error_json("couldn't login")
             return
         u = schema.get_user(self.db, uid=u.uid)[0]
-        self.send_json_ok(f"logged in! {u.name}")
+        self.send_json(u)
 
     @server.Handler.route("/api/add_user", "POST")
     def add_user(self):
-        user = schema.User.decode(self.body)
+        want = {'email', 'password', 'name'}
+        filters, ok = self.filters_from_body(want)
+        if not ok:
+            return
+        user = schema.User.decode(filters)
         try:
             u2 = schema.add_user(self.db, user)
         except sqlite3.IntegrityError as e:
@@ -92,12 +102,21 @@ class AppHandlers(server.Handler):
     @admin_only
     @server.Handler.route("/api/get_user", "POST")
     def get_user(self):
-        users = schema.get_user(self.db, **self.body)
+        want = {'email', 'uid', 'name'}
+        filters, ok = self.filters_from_body(want)
+        if not ok:
+            return
+        self.body
+        users = schema.get_user(self.db, **filters)
         self.send_json_list(users)
 
     @server.Handler.route("/api/get_movie", "POST")
     def get_movie(self):
-        movies = schema.get_movie(self.db, **self.body)
+        want = {'mid', 'title', 'poster'}
+        filters, ok = self.filters_from_body(want)
+        if not ok:
+            return
+        movies = schema.get_movie(self.db, **filters)
         self.send_json_list(movies)
 
     @admin_only

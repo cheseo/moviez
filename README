@@ -1,0 +1,140 @@
+A Theater/Show/Movie database in python.
+It uses 0 external dependency!
+
+# Usage
+For first run, you have to use:
+$ make
+OR
+$ ./createTables
+$ ./handlers.py
+The makefile does the two steps above.
+
+To test, you can do:
+$ make test
+OR
+$ python3 -m unittest
+
+To use in-memory database, use:
+$ ./handlers.py -d ":memory:"
+This exploits the fact that sqlite's connect string uses :memory: for in-memory db. Anything passed as db is passed straight to sqlite's connection string.
+
+handlers.py can be given different database, host and port as:
+$ ./handlers.py -h
+usage: server.py [-h] [-d DB] [-H HOSTNAME] [-p PORT]
+
+Serve movie browser api
+
+options:
+  -h, --help            show this help message and exit
+  -d, --db DB
+  -H, --hostname HOSTNAME
+  -p, --port PORT
+
+# Structure
+The main structures are:
+
+- schema.py, test_db.py
+  This is the database schema, methods to add to database,
+  and the python classes the tables are abstracted as.
+
+- server.py
+  This is a helper module for writing http handlers. It exports
+  @Handler.route("/path/to/resource", method="GET|POST")
+  which is inspired by flask.
+
+  It also has other common functionality, see pydoc[1]
+
+- handlers.py, test_handlers.py
+  This contains the actual handlers. see [2] for the api exported.
+  The get* methods accept many arguments as filters. They are AND'ed together
+  and the list of items that match the query are returned.
+
+  Thus, to get all the users, one has to do:
+  $ curl --json '{}' localhost:8000/api/get_user
+
+  While to get all users of name 'John', (note it has to match 'John' literally)
+  $ curl --json '{"name": "Jhon"}' localhost:8000/api/get_user
+  
+  The poster is sent as hex-encoded binary data. The format of the data is not specified,
+  it has to be readble by the client.
+
+  See the file test_handlers.py for other usages.
+
+
+[1]:
+  $ pydoc server.Handler
+
+    server.Handler = class Handler(http.server.BaseHTTPRequestHandler)
+   |  server.Handler(request, client_address, server)
+   |
+   |  flask-inspired handler class.
+   |
+   |  sets up headers, body and url parameters before calling respective route methods.
+   |
+   |  functions:
+   |  - @route("/login", method="POST")
+   |  - send_error_json(msg)
+   |      redirect with HTTPStatus.BAD_REQUEST, setting the msg.
+   |  - redirect(locatoin, status=HTTPStatus.TEMPORARY_REDIRECTw)
+   |      doesn't send json, relies on HTTP.
+   |      It calls end_headers() at the end.
+   |  - sendfile(path):
+   |      sends ./path file to the write pipe
+   |  - send_error_json(msg: str, status: int = http.HTTPStatus.BAD_REQUEST)
+   |  - send_json_ok(self, msg: str, status: http.HTTPStatus = http.HTTPStatus.OK)
+   |  - send_message(self, message: bytes, status: int = http.HTTPStatus.OK)
+   |  - redirect(self, location: str, status: int = http.HTTPStatus.TEMPORARY_REDIRECT)
+   |
+   |  It stores common variables like:
+   |  - Headers: dict[str, str]
+   |  - Url: urlparse.ParseResult
+   |  - body: Any # Usually dict or list, converted from json
+   |
+   |  as instance variables.
+
+[2]:
+  $ grep --group-separator '' -A2 '@server.Handler.route' handlers.py 
+
+    @server.Handler.route("/api/login")
+    def get_login(self):
+        self.send_error(http.HTTPStatus.METHOD_NOT_ALLOWED, 'please POST the json to /api/login')
+
+    @server.Handler.route("/api/login", "POST")
+    def post_login(self):
+        want = {'email', 'password'}
+
+    @server.Handler.route("/api/add_user", "POST")
+    def add_user(self):
+        want = {'email', 'password', 'name'}
+
+    @server.Handler.route("/api/get_user", "POST")
+    def get_user(self):
+        want = {'email', 'uid', 'name'}
+
+    @server.Handler.route("/api/get_movie", "POST")
+    def get_movie(self):
+        want = {'mid', 'title', 'poster'}
+
+    @server.Handler.route("/api/add_movie", "POST")
+    def add_movie(self):
+        want = {'title', 'length', 'poster'}
+
+    @server.Handler.route("/api/get_theater", "POST")
+    def get_theater(self):
+        want = {'name', 'seats', 'tid'}
+
+    @server.Handler.route("/api/add_theater", "POST")
+    def add_theater(self):
+        want = {'name', 'seats', 'tid'}
+
+    @server.Handler.route("/api/get_show", "POST")
+    def get_show(self):
+        want = {'movie', 'startTime', 'theater', 'seats', 'max_seats', 'sid'}
+
+    @server.Handler.route("/api/add_show", "POST")
+    def add_show(self):
+        want = {'movie', 'startTime', 'theater', 'seats', 'max_seats', 'sid'}
+
+    @server.Handler.route("/api/book_show", "POST")
+    def book_show(self):
+        want = {'sid', 'count'}
