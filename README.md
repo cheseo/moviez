@@ -3,22 +3,27 @@ It uses 0 external dependency!
 
 # Usage
 For first run, you have to use:
+```bash
 $ make
 OR
 $ ./createTables
 $ ./handlers.py
+```
 The makefile does the two steps above.
 
 To test, you can do:
+```bash
 $ make test
 OR
 $ python3 -m unittest
+```
 
 To use in-memory database, use:
-$ ./handlers.py -d ":memory:"
+`$ ./handlers.py -d ":memory:"`
 This exploits the fact that sqlite's connect string uses :memory: for in-memory db. Anything passed as db is passed straight to sqlite's connection string.
 
 handlers.py can be given different database, host and port as:
+```
 $ ./handlers.py -h
 usage: server.py [-h] [-d DB] [-H HOSTNAME] [-p PORT]
 
@@ -29,7 +34,7 @@ options:
   -d, --db DB
   -H, --hostname HOSTNAME
   -p, --port PORT
-
+```
 # Structure
 The main structures are:
 
@@ -62,6 +67,7 @@ The main structures are:
 
 
 [1]:
+```
   $ pydoc server.Handler
 
     server.Handler = class Handler(http.server.BaseHTTPRequestHandler)
@@ -91,8 +97,9 @@ The main structures are:
    |  - body: Any # Usually dict or list, converted from json
    |
    |  as instance variables.
-
+```
 [2]:
+```
   $ grep --group-separator '' -A2 '@server.Handler.route' handlers.py 
 
     @server.Handler.route("/api/login")
@@ -138,3 +145,4 @@ The main structures are:
     @server.Handler.route("/api/book_show", "POST")
     def book_show(self):
         want = {'sid', 'count'}
+```
