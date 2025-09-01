@@ -88,14 +88,18 @@ class TestHandlers(unittest.TestCase):
         return self.post(path, send)
     def test_login(self):
         self.add_user({"email": "me@me", "password":"me"})
+        # @@ doc @@
         path="/api/login"
         send={"email": "me@me", "password":"me"}
         want = {'email': 'me@me', 'name': '', 'password': '', 'role': 'user', 'uid': 1}
+        # @@ doc_end @@
         have = self.post(path, send)
         self.assertEqual(have, want)
-
+        # @@ doc @@
+        path="/api/login"
         send={"email":"doesntexists@example.com", "password":"asdf"}
         want={'message': "couldn't login", 'success': 'false'}
+        # @@ doc_end @@
         have = self.post(path, send)
         self.assertEqual(have, want)
 
@@ -106,19 +110,23 @@ class TestHandlers(unittest.TestCase):
 
     def test_get_user(self):
         self.user_login()
+        # @@ doc @@
         path="/api/get_user"
         send={"uid": "1"}
         want={"success": "false"} # normal user
+        # @@ doc_end @@
         have=self.post(path, send)
         self.assertTrue(isinstance(have, dict))
         self.assertEqual(have['success'], want['success'])
 
         self.logout()
+        # @@ doc @@
         self.admin_login()
         path="/api/get_user"
         send={}
         want=[{'email': 'me@me', 'name': '', 'password': '', 'role': 'user', 'uid': 1},
               {'email': 'admin@admin', 'name': 'admin', 'password': '', 'role': 'admin','uid': 2}]
+        # @@ doc_end @@
         have=self.post(path, send)
         self.assertEqual(have, want)
 
@@ -133,30 +141,38 @@ class TestHandlers(unittest.TestCase):
             l = datetime.timedelta(hours=1, minutes=36)
             poster=f.read().hex()
 
+            # @@ doc @@
             path="/api/add_movie"
             send={"title": "Johnny Mnemonic", "length": l.total_seconds(), "poster": poster}
             want={'success': 'false', 'message': 'login required'}
+            # @@ doc_end @@
             have=self.post(path, send)
             self.assertEqual(have, want)
 
+            # @@ doc @@
             self.user_login()
             path="/api/add_movie"
             send={"title": "Johnny Mnemonic", "length": l.total_seconds(), "poster": poster}
             want={'success': 'false', 'message': 'only admin'}
+            # @@ doc_end @@
             have=self.post(path, send)
             self.assertEqual(have, want)
 
+            # @@ doc @@
             self.admin_login()
-
             path="/api/add_movie"
             send={"title": "Johnny Mnemonic", "length": l.total_seconds(), "poster": poster}
             want={"mid": 1, "title": "Johnny Mnemonic", "length": l.total_seconds(), "poster":poster}
+            # @@ doc_end @@
             have=self.post(path, send)
             self.assertEqual(have, want)
 
+            # @@ doc @@
+            self.user_login()
             path="/api/get_movie"
             send={"mid": have['mid']}
             want=[{"mid": 1, "title": "Johnny Mnemonic", "length": l.total_seconds(), "poster":poster}]
+            # @@ doc_end @@
             have=self.post(path, send)
             self.assertEqual(have, want)
 
@@ -167,23 +183,29 @@ class TestHandlers(unittest.TestCase):
         have=self.post(path, send)
         self.assertEqual(have['success'], want['success'])
 
+        # @@ doc @@
         self.admin_login()
         path="/api/add_theater"
         send={"name": "My Film Hall", "seats": 500}
         want={"tid": 1, "name": "My Film Hall", "seats": 500}
+        # @@ doc_end @@
         have = self.post(path, send)
         self.assertEqual(have, want)
 
+        # @@ doc @@
         self.user_login()
         path="/api/get_theater"
         send={"tid":1}
         want=[{"tid": 1, "name": "My Film Hall", "seats": 500}]
+        # @@ doc_end @@
         have=self.post(path,send)
         self.assertEqual(have, want)
 
+        # @@ doc @@
         path="/api/add_theater"
         send={"name": "My Film Hall 2", "seats": 10}
         want={'success': 'false', 'message': 'only admin'}
+        # @@ doc_end @@
         have = self.post(path, send)
         self.assertEqual(have, want)
 
@@ -200,27 +222,34 @@ class TestHandlers(unittest.TestCase):
         theater = self.post(path, send)
         
         with open("jm.jpg", "rb") as f:
+            # @@ doc @@
             l = datetime.timedelta(hours=1, minutes=36)
             poster=f.read().hex()
             path="/api/add_movie"
             send={"title": "Johnny Mnemonic", "length": l.total_seconds(), "poster": poster}
+            # @@ doc_end @@
             movie=self.post(path, send)
 
             start = datetime.datetime.today()
             theater=self.post("/api/get_theater", {"tid": 1})[0]
             movie=self.post("/api/get_movie", {"mid":1})[0]
+
+            # @@ doc @@
             path="/api/add_show"
             send={'movie': movie, 'startTime': start.isoformat(), 'theater': theater, 'seats': 2}
             want={'sid': 1, 'movie': movie, 'startTime': start.isoformat(), 'theater': theater, 'seats': 2, 'max_seats': theater['seats']}
+            # @@ doc_end @@
             have=self.post(path, send)
             have['movie'] = json.loads(have['movie'])
             have['theater'] = json.loads(have['theater'])
             self.assertEqual(have, want)
 
+            # @@ doc @@
             self.user_login()
             path="/api/book_show"
             send={"sid": 1}
             want={'success': 'true'}
+            # @@ doc_end @@
             have=self.post(path, send)
             self.assertEqual(have, want)
 if __name__ == '__main__':

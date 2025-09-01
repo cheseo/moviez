@@ -50,7 +50,7 @@ The main structures are:
   It also has other common functionality, see pydoc[1]
 
 - handlers.py, test_handlers.py
-  This contains the actual handlers. see [2] for the api exported.
+  This contains the actual handlers. see [2] for the api exported, and [3] for examples of api usage.
   The get* methods accept many arguments as filters. They are AND'ed together
   and the list of items that match the query are returned.
 
@@ -101,48 +101,87 @@ The main structures are:
 [2]:
 ```
   $ grep --group-separator '' -A2 '@server.Handler.route' handlers.py 
+```
 
-    @server.Handler.route("/api/login")
-    def get_login(self):
-        self.send_error(http.HTTPStatus.METHOD_NOT_ALLOWED, 'please POST the json to /api/login')
+[3]:
+```
+$ awk '/.* # @@ doc @@/,/.* # @@ doc_end @@/' test_handlers.py | sed 's,^[[:space:]]*,,g; s,.*@@.*,,g'
 
-    @server.Handler.route("/api/login", "POST")
-    def post_login(self):
-        want = {'email', 'password'}
+path="/api/login"
+send={"email": "me@me", "password":"me"}
+want = {'email': 'me@me', 'name': '', 'password': '', 'role': 'user', 'uid': 1}
 
-    @server.Handler.route("/api/add_user", "POST")
-    def add_user(self):
-        want = {'email', 'password', 'name'}
 
-    @server.Handler.route("/api/get_user", "POST")
-    def get_user(self):
-        want = {'email', 'uid', 'name'}
+path="/api/login"
+send={"email":"doesntexists@example.com", "password":"asdf"}
+want={'message': "couldn't login", 'success': 'false'}
 
-    @server.Handler.route("/api/get_movie", "POST")
-    def get_movie(self):
-        want = {'mid', 'title', 'poster'}
 
-    @server.Handler.route("/api/add_movie", "POST")
-    def add_movie(self):
-        want = {'title', 'length', 'poster'}
+path="/api/get_user"
+send={"uid": "1"}
+want={"success": "false"} # normal user
 
-    @server.Handler.route("/api/get_theater", "POST")
-    def get_theater(self):
-        want = {'name', 'seats', 'tid'}
 
-    @server.Handler.route("/api/add_theater", "POST")
-    def add_theater(self):
-        want = {'name', 'seats', 'tid'}
+self.admin_login()
+path="/api/get_user"
+send={}
+want=[{'email': 'me@me', 'name': '', 'password': '', 'role': 'user', 'uid': 1},
+{'email': 'admin@admin', 'name': 'admin', 'password': '', 'role': 'admin','uid': 2}]
 
-    @server.Handler.route("/api/get_show", "POST")
-    def get_show(self):
-        want = {'movie', 'startTime', 'theater', 'seats', 'max_seats', 'sid'}
 
-    @server.Handler.route("/api/add_show", "POST")
-    def add_show(self):
-        want = {'movie', 'startTime', 'theater', 'seats', 'max_seats', 'sid'}
+path="/api/add_movie"
+send={"title": "Johnny Mnemonic", "length": l.total_seconds(), "poster": poster}
+want={'success': 'false', 'message': 'login required'}
 
-    @server.Handler.route("/api/book_show", "POST")
-    def book_show(self):
-        want = {'sid', 'count'}
+
+self.user_login()
+path="/api/add_movie"
+send={"title": "Johnny Mnemonic", "length": l.total_seconds(), "poster": poster}
+want={'success': 'false', 'message': 'only admin'}
+
+
+self.admin_login()
+path="/api/add_movie"
+send={"title": "Johnny Mnemonic", "length": l.total_seconds(), "poster": poster}
+want={"mid": 1, "title": "Johnny Mnemonic", "length": l.total_seconds(), "poster":poster}
+
+
+self.user_login()
+path="/api/get_movie"
+send={"mid": have['mid']}
+want=[{"mid": 1, "title": "Johnny Mnemonic", "length": l.total_seconds(), "poster":poster}]
+
+
+self.admin_login()
+path="/api/add_theater"
+send={"name": "My Film Hall", "seats": 500}
+want={"tid": 1, "name": "My Film Hall", "seats": 500}
+
+
+self.user_login()
+path="/api/get_theater"
+send={"tid":1}
+want=[{"tid": 1, "name": "My Film Hall", "seats": 500}]
+
+
+path="/api/add_theater"
+send={"name": "My Film Hall 2", "seats": 10}
+want={'success': 'false', 'message': 'only admin'}
+
+
+l = datetime.timedelta(hours=1, minutes=36)
+poster=f.read().hex()
+path="/api/add_movie"
+send={"title": "Johnny Mnemonic", "length": l.total_seconds(), "poster": poster}
+
+
+path="/api/add_show"
+send={'movie': movie, 'startTime': start.isoformat(), 'theater': theater, 'seats': 2}
+want={'sid': 1, 'movie': movie, 'startTime': start.isoformat(), 'theater': theater, 'seats': 2, 'max_seats': theater['seats']}
+
+
+self.user_login()
+path="/api/book_show"
+send={"sid": 1}
+want={'success': 'true'}
 ```
