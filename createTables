@@ -1,0 +1,21 @@
+#!/bin/bash
+db="db.db"
+usage(){
+    cat >&2
+    exit 1
+} <<EOF
+createTables [sqliteDb]
+
+Create tables reading schema from schema.py to sqliteDb, defaulting to '$db'
+EOF
+
+if (( $# > 0 )); then
+     if [[ $1 != -* ]]; then
+	 db=$1
+     else
+	 usage
+     fi
+fi
+
+rm $db
+awk '/^[[:alpha:]]*Table = """/{start=1; next;} /^"""/{start=0; print ""} start { print }' schema.py | sqlite3 "$db"
