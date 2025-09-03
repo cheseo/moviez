@@ -6,6 +6,7 @@ from datetime import timedelta, datetime
 from collections import OrderedDict
 from copy import copy
 import json
+from hashlib import sha256
 
 import logging
 
@@ -86,7 +87,8 @@ def add_user(con: sqlite3.Connection, user: User) -> User:
     q = """
     insert into users(name, email, password, role) values(?, ?, ?, ?) returning uid;
     """
-    res = con.execute(q, (u.name, u.email, u.password, u.role)).fetchone()
+    hashed = sha256(u.password.encode()).hexdigest()
+    res = con.execute(q, (u.name, u.email, hashed, u.role)).fetchone()
     u.uid, u.password = res[0], ""
     return u
 
@@ -104,7 +106,8 @@ def login(con: sqlite3.Connection, email: str, pw: str) -> int:
     q = """
     select uid from users where email = ? and password = ?;
     """
-    res = con.execute(q, (email, pw))
+    hashed = sha256(pw.encode()).hexdigest()
+    res = con.execute(q, (email, hashed))
     val = res.fetchone()
     if val is not None:
         return val[0]
