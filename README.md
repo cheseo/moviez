@@ -130,26 +130,36 @@ want=[{'email': 'me@me', 'name': '', 'password': '', 'role': 'user', 'uid': 1},
 
 
 path="/api/add_movie"
-send={"title": "Johnny Mnemonic", "length": l.total_seconds(), "poster": poster}
+send={"title": "Johnny Mnemonic", "length": l.total_seconds(), "poster": poster_hex}
 want={'success': 'false', 'message': 'login required'}
 
 
 self.user_login()
 path="/api/add_movie"
-send={"title": "Johnny Mnemonic", "length": l.total_seconds(), "poster": poster}
+send={"title": "Johnny Mnemonic", "length": l.total_seconds(), "poster": poster_hex}
 want={'success': 'false', 'message': 'only admin'}
 
 
 self.admin_login()
 path="/api/add_movie"
-send={"title": "Johnny Mnemonic", "length": l.total_seconds(), "poster": poster}
-want={"mid": 1, "title": "Johnny Mnemonic", "length": l.total_seconds(), "poster":poster}
+send={"title": "Johnny Mnemonic", "length": l.total_seconds(), "poster": poster_hex}
+want={"mid": 1, "title": "Johnny Mnemonic", "length": l.total_seconds(), "poster":poster_hex}
 
 
 self.user_login()
 path="/api/get_movie"
-send={"mid": have['mid']}
-want=[{"mid": 1, "title": "Johnny Mnemonic", "length": l.total_seconds(), "poster":poster}]
+send={"mid": have['mid'], "full":True}
+want=[{"mid": 1, "title": "Johnny Mnemonic", "length": l.total_seconds(), "poster":poster_hex}]
+
+
+self.user_login()
+path="/api/get_movie"
+send={"mid": have[0]['mid'], "full":False}
+have=self.post(path, send)
+for movie in have:
+movie['poster'] = self.get(f"/api/get_movie_poster?mid={movie['mid']}")
+want=[{"mid": 1, "title": "Johnny Mnemonic", "length": l.total_seconds(), "poster":poster_bytes}]
+self.assertEqual(have, want)
 
 
 self.admin_login()
@@ -184,4 +194,5 @@ self.user_login()
 path="/api/book_show"
 send={"sid": 1}
 want={'success': 'true'}
+
 ```

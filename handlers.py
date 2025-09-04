@@ -1,6 +1,7 @@
 #!/bin/python3
 import argparse
 import urllib.parse as urlparse
+import urllib
 import server
 import sqlite3
 import http.server
@@ -113,12 +114,36 @@ class AppHandlers(server.Handler):
 
     @server.Handler.route("/api/get_movie", "POST")
     def get_movie(self):
-        want = {'mid', 'title', 'poster'}
+        """Get movie as per the filters, or all of them.
+        use `full=true' json to get the poster as well (defaults to false).
+        use GET /api/get_movie_poster?mid=mid to get the poster only.
+        """
+        want = {'mid', 'title', 'poster', 'full'}
         filters, ok = self.filters_from_body(want)
         if not ok:
             return
         movies = schema.get_movie(self.db, **filters)
         self.send_json_list(movies)
+
+    @server.Handler.route("/api/get_movie_poster")
+    def get_movie_poster(self):
+        q:Dict = urllib.parse.parse_qs(self.Url.query)
+        if not 'mid' in q:
+            return self.send_error_json("pass mid as query string.")
+        try:
+            mid = int(q['mid'][0])
+        except Exception as e:
+            self.send_error_json("mid must be int")
+            return
+        ps = schema.get_movie_poster(self.db, mid)
+        if ps == b"":
+            self.send_response(http.HTTPStatus.NOT_FOUND)
+            return
+        self.send_response(http.HTTPStatus.OK)
+        self.send_header('content-length', str(len(ps)))
+        self.send_header("content-type", "application/octet-stream")
+        self.end_headers()
+        self.wfile.write(ps)
 
     @server.Handler.route("/api/add_movie", "POST")
     @admin_only

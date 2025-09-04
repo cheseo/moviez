@@ -50,6 +50,20 @@ class TestHandlers(unittest.TestCase):
             ret = {"got": str(e)}
         return ret
 
+    def get(self, path: str):
+        host = "127.0.0.1:8000"
+        headers = {'Content-type': '*'}
+        if self._token:
+            headers['Cookie'] = self._token
+        connection = http.client.HTTPConnection(host)
+        # connection.set_debuglevel(1)
+        connection.request(method='GET', url=path, headers=headers)
+        r = connection.getresponse()
+        ck = r.getheader('Set-Cookie')
+        if ck is not None:
+            self._token = ck
+        return r.read()
+
     def logout(self):
         self._token = None
 
@@ -139,11 +153,12 @@ class TestHandlers(unittest.TestCase):
 
         with open("jm.jpg", "rb") as f:
             l = datetime.timedelta(hours=1, minutes=36)
-            poster=f.read().hex()
+            poster_bytes=f.read()
+            poster_hex=poster_bytes.hex()
 
             # @@ doc @@
             path="/api/add_movie"
-            send={"title": "Johnny Mnemonic", "length": l.total_seconds(), "poster": poster}
+            send={"title": "Johnny Mnemonic", "length": l.total_seconds(), "poster": poster_hex}
             want={'success': 'false', 'message': 'login required'}
             # @@ doc_end @@
             have=self.post(path, send)
@@ -152,7 +167,7 @@ class TestHandlers(unittest.TestCase):
             # @@ doc @@
             self.user_login()
             path="/api/add_movie"
-            send={"title": "Johnny Mnemonic", "length": l.total_seconds(), "poster": poster}
+            send={"title": "Johnny Mnemonic", "length": l.total_seconds(), "poster": poster_hex}
             want={'success': 'false', 'message': 'only admin'}
             # @@ doc_end @@
             have=self.post(path, send)
@@ -161,8 +176,8 @@ class TestHandlers(unittest.TestCase):
             # @@ doc @@
             self.admin_login()
             path="/api/add_movie"
-            send={"title": "Johnny Mnemonic", "length": l.total_seconds(), "poster": poster}
-            want={"mid": 1, "title": "Johnny Mnemonic", "length": l.total_seconds(), "poster":poster}
+            send={"title": "Johnny Mnemonic", "length": l.total_seconds(), "poster": poster_hex}
+            want={"mid": 1, "title": "Johnny Mnemonic", "length": l.total_seconds(), "poster":poster_hex}
             # @@ doc_end @@
             have=self.post(path, send)
             self.assertEqual(have, want)
@@ -170,11 +185,22 @@ class TestHandlers(unittest.TestCase):
             # @@ doc @@
             self.user_login()
             path="/api/get_movie"
-            send={"mid": have['mid']}
-            want=[{"mid": 1, "title": "Johnny Mnemonic", "length": l.total_seconds(), "poster":poster}]
+            send={"mid": have['mid'], "full":True}
+            want=[{"mid": 1, "title": "Johnny Mnemonic", "length": l.total_seconds(), "poster":poster_hex}]
             # @@ doc_end @@
             have=self.post(path, send)
             self.assertEqual(have, want)
+
+            # @@ doc @@
+            self.user_login()
+            path="/api/get_movie"
+            send={"mid": have[0]['mid'], "full":False}
+            have=self.post(path, send)
+            for movie in have:
+                movie['poster'] = self.get(f"/api/get_movie_poster?mid={movie['mid']}")
+            want=[{"mid": 1, "title": "Johnny Mnemonic", "length": l.total_seconds(), "poster":poster_bytes}]
+            self.assertEqual(have, want)
+            # @@ doc_end @@
 
     def test_theater(self):
         path="/api/add_theater"

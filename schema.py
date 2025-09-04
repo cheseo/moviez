@@ -1,4 +1,15 @@
 #!/bin/python3
+"""
+module schema implements the database interface.
+All dataclasses _must_ support the obj.encode() and class.decode() methods.
+using and returning json strings.
+
+The dataclasses are
+- User
+- Movie
+- Theater
+- Show
+"""
 from dataclasses import dataclass
 from enum import StrEnum
 import sqlite3
@@ -113,7 +124,6 @@ def login(con: sqlite3.Connection, email: str, pw: str) -> int:
         return val[0]
     return 0
 
-
 @dataclass
 class Movie:
     mid: int
@@ -121,10 +131,6 @@ class Movie:
     length: timedelta
     poster: bytes = b""
 
-    # def __eq__(self, other) -> bool:
-    #     s = [self.mid,  self.title,  self.length,  self.poster ]
-    #     t = [other.mid, other.title, other.length, other.poster]
-    #     return s == t
     @staticmethod
     def dummy():
         return Movie(0, '', timedelta())
@@ -153,14 +159,26 @@ poster blob not null default ''
 tabledef.append(MovieTable)
 
 def get_movie(con: sqlite3.Connection, **Filter) -> list[Movie]:
+    full=False
+    if 'full' in Filter:
+        full=Filter['full']
+        del Filter['full']
     q = "select mid, title, seconds from movie"
     movies = []
     for (mid, title, seconds) in select(con, q, Filter, Movie.dummy()):
         mm = Movie(mid = mid, title = title, length = timedelta(seconds=float(seconds)))
-        with con.blobopen("movie", "poster", mid, readonly=True) as b:
-            mm.poster = b.read()
+        if full:
+            with con.blobopen("movie", "poster", mid, readonly=True) as b:
+                mm.poster = b.read()
         movies.append(mm)
     return movies
+
+def get_movie_poster(con: sqlite3.Connection, mid: int) -> bytes:
+    try:
+        with con.blobopen("movie", "poster", mid, readonly=True) as b:
+            return b.read()
+    except Exception:
+        return b""
 
 def add_movie(con: sqlite3.Connection, title: str, length: timedelta, poster: bytes = b'') -> Movie:
     if poster is not None:
